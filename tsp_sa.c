@@ -52,6 +52,22 @@ float **generate_distances(city *cities, int num_cities) {
     return distances;
 }
 
+void normalize_distances(float **distances, int num_cities) {
+    float min = distances[0][0], max = distances[0][0];
+    for(int i = 0; i < num_cities; i++) {
+        for(int j = 0; j < num_cities; j++) {
+            if (distances[i][j] < min) min = distances[i][j];
+            else if(distances[i][j] > max) max = distances[i][j];
+        }
+    }
+
+    for(int i = 0; i < num_cities; i++) {
+        for(int j = 0; j < num_cities; j++) {
+            distances[i][j] /= (max - min);
+        }
+    }
+}
+
 void shuffle(int *array, int n) {
     for (int i = n - 1; i > 0; i--) {
         int j = rand() % (i + 1); // random index between 0 and i
@@ -129,10 +145,10 @@ void create_log(char *filename, int run) {
     fclose(fp);
 }
 
-void log_convergence(char *filename, int it, int iterT, float cur_cost, float best_cost, float T) {
+void log_convergence(char *filename, int it, int iterT, int sa_max, float cur_cost, float best_cost, float T) {
     FILE *fp = fopen64(filename, "a");
 
-    fprintf(fp, "%d,%.2f,%.2f,%.4f\n", it * iterT, cur_cost, best_cost, T);
+    fprintf(fp, "%d,%.2f,%.2f,%.4f\n", iterT + it * sa_max, cur_cost, best_cost, T);
 
     fclose(fp);
 }
@@ -177,11 +193,11 @@ int *tsp_sa(int *init_solution, float init_temp, float min_temp, int sa_max, int
                 } else free(tmp_solution);
             }
 
-            log_convergence(filename, i + 1, iterT, cur_cost, best_cost, T);
+            log_convergence(filename, i, iterT, sa_max, cur_cost, best_cost, T);
         }                
         
-        if(cs == 1) T *= 0.95;
-        else T = cs_2(init_temp, min_temp, i, max_iter);
+        if(cs == 1) T *= 0.98;
+        else T = cs_2(init_temp, min_temp, i + 1, max_iter);
         iterT = 0;
     }
 
