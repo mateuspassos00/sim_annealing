@@ -52,20 +52,21 @@ float **generate_distances(city *cities, int num_cities) {
     return distances;
 }
 
-void normalize_distances(float **distances, int num_cities) {
-    float min = distances[0][0], max = distances[0][0];
+float normalize_distances(float **distances, int num_cities) {
+    float max = distances[0][0];
     for(int i = 0; i < num_cities; i++) {
-        for(int j = 0; j < num_cities; j++) {
-            if (distances[i][j] < min) min = distances[i][j];
-            else if(distances[i][j] > max) max = distances[i][j];
+        for(int j = 0; j < i + 1; j++) {
+            if(distances[i][j] > max) max = distances[i][j];
         }
     }
 
     for(int i = 0; i < num_cities; i++) {
-        for(int j = 0; j < num_cities; j++) {
-            distances[i][j] /= (max - min);
+        for(int j = 0; j < i + 1; j++) {
+            distances[i][j] = distances[i][j] / max;
         }
     }
+
+    return max;
 }
 
 void shuffle(int *array, int n) {
@@ -100,6 +101,21 @@ float solution_cost(int *solution, float **distances, int num_cities) {
     }
 
     return cost;
+}
+
+float solution_cost_n(int *solution, float **distances, int num_cities, float max_distance) {
+    float cost = 0;
+    for(int i = 0; i < num_cities - 1; i++) {
+        // solução indexada em 1 e distância em 0
+        int row = solution[i] - 1;
+        int col = solution[i + 1] - 1;
+
+        // matriz triangular.. pode ser que algum elemento inexistente seja acessado
+        if(row < col) cost += distances[col][row]; 
+        else cost += distances[row][col];
+    }
+
+    return cost * max_distance;
 }
 
 float cs_2(float T0, float TN, int i, int N) {
@@ -204,15 +220,66 @@ int *tsp_sa(int *init_solution, float init_temp, float min_temp, int sa_max, int
     return best_solution;
 }
 
+int *tsp_sa_n(int *init_solution, float init_temp, float min_temp, int sa_max, int max_iter, float **distances, float max_distance, int num_cities, int cs, int num_swaps, int run) {
+    int *best_solution = (int *) malloc(num_cities * sizeof(int));
+    copyarray(best_solution, init_solution, num_cities);
+    float best_cost = solution_cost_n(best_solution, distances, num_cities, max_distance);
+    
+    int iterT = 0; // número de iterações na temperatura T
+    float T = init_temp; // temperatura atual
+    
+    int *cur_solution = init_solution;
+    float cur_cost = best_cost;
+      
+    char filename[10] = "";
+    create_log(filename, run);
+    for(int i = 0; i < max_iter; i++) {
+        while(iterT < sa_max) {
+            iterT++;            
+            
+            int *tmp_solution = perturbate(cur_solution, num_cities, num_swaps);
+            float tmp_cost = solution_cost_n(tmp_solution, distances, num_cities, max_distance);
+            
+            float delta = tmp_cost - cur_cost;
+
+            if(delta <= 0) { 
+                free(cur_solution);
+                cur_solution = tmp_solution;
+                cur_cost = tmp_cost;
+                if(cur_cost <= best_cost) {
+                    copyarray(best_solution, cur_solution, num_cities);
+                    best_cost = cur_cost;
+                }
+            } else {
+                float x = ((float) (rand() % RAND_MAX)) / RAND_MAX; // escolhendo x entre [0, 1]
+                float prob_worse = expf(-delta / T);
+                if(x < prob_worse) {
+                    free(cur_solution);
+                    cur_solution = tmp_solution;
+                    cur_cost = tmp_cost;
+                } else free(tmp_solution);
+            }
+
+            log_convergence(filename, i, iterT, sa_max, cur_cost, best_cost, T);
+        }                
+        
+        if(cs == 1) T *= 0.98;
+        else T = cs_2(init_temp, min_temp, i + 1, max_iter);
+        iterT = 0;
+    }
+
+    return best_solution;
+}
+
 void print_solution(int *solution, int num_cities) {
     for(int i = 0; i < num_cities - 1; i++) printf("%d, ", solution[i]);
     printf("%d\n", solution[num_cities - 1]);
 }
 
-void print_solution_to_file(int *solution, float **distances, const char *filename, int num_cities) {
+void print_solution_to_file(int *solution, float **distances, float max_distance, const char *filename, int num_cities) {
     FILE *fp = fopen64(filename, "wt"); assert(fp != NULL);
     
-    fprintf(fp, "Cost: %.2f\n", solution_cost(solution, distances, num_cities));
+    fprintf(fp, "Cost: %.2f\n", solution_cost_n(solution, distances, num_cities, max_distance));
     
     for(int i = 0; i < num_cities - 1; i++) fprintf(fp, "%d\n", solution[i]);
     fprintf(fp, "%d\n", solution[num_cities - 1]);
