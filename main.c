@@ -7,15 +7,14 @@
 
 #define NUM_CITIES 100
 
-#define MAX_ITER 800
-#define INIT_TEMP 1000.0
+#define MAX_ITER 600
+#define INIT_TEMP 10000.0
 #define MIN_TEMP 0.0001
-#define SA_MAX 300
+#define SA_MAX 500
 #define COOLING_SCHEDULE 1
 #define NUM_SWAPS 1
 
 #define RUNS 10
-#define NORMALIZE 1
 
 void name_file(char *filename, int run) {
     char r[3];

@@ -6,6 +6,8 @@
 
 #include "tsp_sa.h"
 
+#define PI 3.1415926535
+
 city *load_instances(const char *filename, int num_cities) {
     FILE *fp = fopen64(filename, "rt"); assert(fp != NULL);
 
@@ -125,6 +127,14 @@ float cs_2(float T0, float TN, int i, int N) {
     return (A / (i + 1)) + B;
 }
 
+float cs_3(float T0, float TN, int i, int N) {
+    return T0 - i * (T0 - TN) / N;
+}
+
+float cs_4(float T0, float TN, int i, int N) {
+    return 0.5 * (T0 - TN) * (1 + cosf((i * PI) / N)) + TN;
+}
+
 int *perturbate(int *cur_solution, int num_cities, int num_swaps) {
     // fazendo uma cópia
     int *tmp_solution = (int *) malloc(num_cities * sizeof(int));
@@ -210,10 +220,12 @@ int *tsp_sa(int *init_solution, float init_temp, float min_temp, int sa_max, int
             }
 
             log_convergence(filename, i, iterT, sa_max, cur_cost, best_cost, T);
-        }                
+        }
         
         if(cs == 1) T *= 0.98;
-        else T = cs_2(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 2) T *= cs_2(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 3) T *= cs_3(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 4) T *= cs_4(init_temp, min_temp, i + 1, max_iter);
         iterT = 0;
     }
 
@@ -264,7 +276,9 @@ int *tsp_sa_n(int *init_solution, float init_temp, float min_temp, int sa_max, i
         }                
         
         if(cs == 1) T *= 0.98;
-        else T = cs_2(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 2) T = cs_2(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 3) T = cs_3(init_temp, min_temp, i + 1, max_iter);
+        else if(cs == 4) T = cs_4(init_temp, min_temp, i + 1, max_iter);
         iterT = 0;
     }
 
